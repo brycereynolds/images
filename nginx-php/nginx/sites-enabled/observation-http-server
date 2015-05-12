@@ -1,0 +1,33 @@
+server {
+    listen 80;
+    client_max_body_size 20M;
+
+    server_tokens off;
+    #Please let IE use Chrome Frame!
+    add_header "X-UA-Compatible" "IE=Edge,chrome=1"; 
+
+    include server.conf;
+    add_header "X-Server" $server_nickname;
+
+    server_name ~^ndev-([a-z]+)\.bloomboard\.com$ 127.0.0.1;
+    access_log /var/log/nginx.access.log;
+    error_log  /var/log/nginx.error.log;
+    root /var/www/html/app/webroot/;
+
+    include includes/cache.conf;
+    include includes/status.conf;
+
+    location / {
+        index  index.php index.html index.htm;
+        try_files $uri $uri/ /index.php?$uri&$args;
+    }
+
+    location ~ .*\.php[345]?$ {
+        fastcgi_read_timeout 3000s;
+        fastcgi_pass 127.0.0.1:8999;
+        fastcgi_index index.php;
+        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+        include        /etc/nginx/fastcgi_params;   
+    }
+}
+

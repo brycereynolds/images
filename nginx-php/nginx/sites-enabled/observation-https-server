@@ -1,0 +1,72 @@
+server {
+    listen 443 ssl spdy;
+    client_max_body_size 20M;
+
+    server_tokens off;
+    #Please let IE use Chrome Frame!
+    add_header "X-UA-Compatible" "IE=Edge,chrome=1"; 
+
+    include server.conf;
+    add_header "X-Server" $server_nickname;
+
+    server_name ~^ndev-([a-z]+)\.bloomboard\.com$ 127.0.0.1;
+    access_log /var/log/nginx.access.log;
+    error_log  /var/log/nginx.error.log;
+    root /var/www/html/app/webroot/;
+
+    ssl on;
+    include includes/ssl.conf;
+    include includes/cache.conf;
+    include includes/status.conf;
+
+    # SimpleSAMLphp PHP files
+    # location ~ /simplesaml {
+    location ~ /simplesaml/(.+\.php.*)$ {
+        index  index.php index.html index.htm;
+        alias /var/www/simplesamlphp/www/;
+        fastcgi_pass 127.0.0.1:8999;
+        fastcgi_index index.php;
+        fastcgi_split_path_info ^((?U).+\.php)(/?.*)$;
+        fastcgi_param SCRIPT_FILENAME $request_filename$1;
+        fastcgi_param PATH_INFO $fastcgi_path_info;
+        fastcgi_param SIMPLESAML_CONF bloomboard;
+        fastcgi_read_timeout 300s;
+        include /etc/nginx/fastcgi_params;
+    }
+
+    # SimpleSAMLphp static files
+    location ~ ^/simplesaml(.*)$ {
+        index  index.php index.html index.htm;
+        alias /var/www/simplesamlphp/www$1;
+    }
+
+    # offiline node.js tasks
+    location ~* ^/offline/.*$
+    {
+       rewrite  ^/offline/(.*)  /$1 break;
+       proxy_pass http://127.0.0.1:3001;
+    }
+
+    location / {
+        index  index.php index.html index.htm;
+        try_files $uri $uri/ /index.php?$uri&$args;
+
+	 # How long to wait for a response
+        proxy_read_timeout 6000;
+        send_timeout 6000;
+    }
+
+    location ~ .*\.php[345]?$ {
+        # bulk create users
+        fastcgi_buffer_size 128k;
+        fastcgi_buffers 4 256k;
+        fastcgi_busy_buffers_size 256k;
+
+        fastcgi_read_timeout 3000s;
+        fastcgi_pass 127.0.0.1:8999;
+        fastcgi_index index.php;
+        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+        include        /etc/nginx/fastcgi_params;  
+    }
+}
+

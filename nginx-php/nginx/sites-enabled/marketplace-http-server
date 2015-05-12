@@ -1,0 +1,34 @@
+server {
+    listen       80;
+    client_max_body_size 20M;
+    server_tokens off;
+
+    #Please let IE use Chome Frame!
+    add_header "X-UA-Compatible" "IE=Edge,chrome=1"; 
+
+    include server.conf;
+    add_header "X-Server" $server_nickname;
+
+    server_name ~^m-ndev-([a-z]+)\.bloomboard\.com$;
+    access_log /var/log/nginx.access.log;
+    error_log  /var/log/nginx.error.log;
+    root /var/www/html/app/webroot-marketplace/;
+
+    include includes/cache.conf;
+    include includes/status.conf;
+
+    location / {
+        index  index.php index.html index.htm;
+        try_files $uri  /index.php?FromMarketplace$uri&$args;
+    }
+
+    location ~ .*\.php[345]?$ {
+        fastcgi_pass 127.0.0.1:8999;
+        fastcgi_index index.php;
+        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+        include        /etc/nginx/fastcgi_params;
+        fastcgi_param  SERVER_NAME        $host;
+        fastcgi_param   REQUEST_URI       /FromMarketplace$request_uri;
+    }
+}
+
